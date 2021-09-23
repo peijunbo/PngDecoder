@@ -1,0 +1,7 @@
+Width = 2560
+Height = 1600
+BitDepth = 8
+ColorType = 2
+ComMethod = 0
+FilMethod = 0
+IntMethod = 0
