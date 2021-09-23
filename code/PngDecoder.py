@@ -100,3 +100,5 @@ for i in chunklist2:
 
 picture1.close()
 picture2.close()
+shuchu1.close()
+shuchu2.close()
