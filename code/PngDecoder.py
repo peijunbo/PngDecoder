@@ -126,6 +126,8 @@ def createidat(idatlist):
     outlist.append(Chunk(0, chunk, intchunk))
     outlist.reverse()
     return outlist
+
+
 class PNG:
     def __init__(self, padress):
         pfile = open(padress, mode='rb')
@@ -164,8 +166,6 @@ class PNG:
         self.glist = []
         self.blist = []
         rgblist = []
-
-
         for i in decompress:
             rgblist.append(int(i.hex(), 16))
         for i in range(len(rgblist)):
@@ -188,6 +188,7 @@ class PNG:
         outlist = struct.pack(str(len(outlist))+"c", *outlist)
         outlist = zlib.decompress(outlist)
         outlist = struct.unpack(str(len(outlist))+"c", outlist)
+
         return outlist
 
     def xy_to_rgbindex(self, x, y):
@@ -239,30 +240,36 @@ class PNG:
             self.rlist[i] = self.glist[i] = self.blist[i] = gray
         self.modify_png(self.rlist, self.glist, self.blist)
 
-    def getchpainting(self):
+    def getchpainting(self, intervel=10):
         self.changegray()
         outtxt = ''
-        i = 0
-        while i < len(self.rlist):
-            if i % self.Width == 0:
-                outtxt += '\n'
-            if self.rlist[i] < 30:
-                outtxt += '、'
-            elif self.rlist[i] < 60:
-                outtxt += '一'
-            elif self.rlist[i] < 90:
-                outtxt += '三'
-            elif self.rlist[i] < 120:
-                outtxt += '四'
-            elif self.rlist[i] < 150:
-                outtxt += '道'
-            elif self.rlist[i] < 180:
-                outtxt += '隧'
-            elif self.rlist[i] < 210:
-                outtxt += '※'
-            else:
-                outtxt += '齉'
-            i += 1
+        x = 1
+        y = 1
+        count = 0
+        while x < self.Height-1:
+            while y < self.Width-1:
+                index = self.xy_to_rgbindex(x, y)
+                if self.rlist[index] < 30:
+                    outtxt += '、'
+                elif self.rlist[index] < 60:
+                    outtxt += '巳'
+                elif self.rlist[index] < 90:
+                    outtxt += '凹'
+                elif self.rlist[index] < 120:
+                    outtxt += '刘'
+                elif self.rlist[index] < 150:
+                    outtxt += '星'
+                elif self.rlist[index] < 180:
+                    outtxt += '倒'
+                elif self.rlist[index] < 210:
+                    outtxt += '隧'
+                else:
+                    outtxt += '齉'
+                y += intervel
+                count += 1
+            outtxt += '\n'
+            x += intervel
+            y = 1
         return outtxt
 
 # 重构函数
