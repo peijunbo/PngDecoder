@@ -179,6 +179,7 @@ class PNG:
         self.rlist = getrgb(self, self.rlist, fillist)
         self.glist = getrgb(self, self.glist, fillist)
         self.blist = getrgb(self, self.blist, fillist)
+        self.gray = False
 
     def decompress_idat(self):
         outlist = []
@@ -235,13 +236,15 @@ class PNG:
 
     def changegray(self):
         for i in range(len(self.rlist)):
-            gray = (self.rlist[i] * 30 + self.glist[i] * 59 + self.blist[i] * 11 + 50) // 100
+            gray = (self.rlist[i] * 30 + self.glist[i] * 59 + self.blist[i] * 11) // 100
 
             self.rlist[i] = self.glist[i] = self.blist[i] = gray
         self.modify_png(self.rlist, self.glist, self.blist)
+        self.gray = True
 
     def getchpainting(self, intervel=10):
-        self.changegray()
+        if not self.gray:
+            self.changegray()
         outtxt = ''
         x = 1
         y = 1
@@ -271,6 +274,37 @@ class PNG:
             x += intervel
             y = 1
         return outtxt
+
+    def changeedge(self):
+        if not self.gray:
+            self.changegray()
+        graylist = []
+        graylist.extend(self.rlist)
+        for x in range(1, self.Height-1):
+            for y in range(1, self.Width-1):
+                # b c d
+                # e a f
+                # g h i
+                index = self.xy_to_rgbindex(x, y)
+                # a = graylist[self.xy_to_rgbindex(x, y)]
+                b = graylist[self.xy_to_rgbindex(x-1, y-1)]
+                c = graylist[self.xy_to_rgbindex(x-1, y)]
+                d = graylist[self.xy_to_rgbindex(x-1, y+1)]
+                e = graylist[self.xy_to_rgbindex(x, y-1)]
+                f = graylist[self.xy_to_rgbindex(x, y+1)]
+                g = graylist[self.xy_to_rgbindex(x+1, y-1)]
+                h = graylist[self.xy_to_rgbindex(x+1, y)]
+                i = graylist[self.xy_to_rgbindex(x+1, y+1)]
+                fx = abs((2 * f + d + i - 2 * e - b - g)) // 4
+                fy = abs((2 * h + g + i - 2 * c - b - d)) // 4
+                gradient = int((fx ** 2 + fy ** 2) ** 0.5)
+                if gradient > 255:
+                    gradient = 255
+                gradient = 255 - gradient
+                self.rlist[index] = self.glist[index] = self.blist[index] = gradient
+
+        self.modify_png(self.rlist, self.glist, self.blist)
+
 
 # 重构函数
 def getrgb(picture, rgblist, filtermethod):
@@ -328,6 +362,7 @@ def getrgb(picture, rgblist, filtermethod):
                     rgblist[j + i * picture.Width] = (rgblist[j + i * picture.Width] + ret) % 256
 
     return rgblist
+
 
 # 过滤函数
 def filrgb(picrgblist, filtermethod):
