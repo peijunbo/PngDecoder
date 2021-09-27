@@ -1,5 +1,8 @@
 import struct
 import zlib
+import cv2
+import os
+
 
 # 创建数据块类每个类变量内有该数据块的信息
 class Chunk:
@@ -74,6 +77,7 @@ def bytes_to_int(bytes):
         outnum = int(bytes.hex(), 16)
     return outnum
 
+
 # 定义一个将各个数据块存入列表的函数
 def setchunk(ls, originls, index=8):
     outlist = []
@@ -83,12 +87,14 @@ def setchunk(ls, originls, index=8):
         index = ck.endindex
     return outlist
 
+
 def createidat(idatlist):
+    num = 2 ** 31 - 1
     outlist = []
-    crclist = [0, 0, 0, 0]
-    for i in range(len(crclist)):
-        a = crclist[i]
-        crclist[i] = a.to_bytes(1, "big", signed=False)
+    # Type
+    typelist = []
+    for i in [73, 68, 65, 84]:
+        typelist.append(i.to_bytes(1, "big", signed=False))
     while len(idatlist) > 2**31-1:
         chunk = []
         # Length
@@ -97,30 +103,33 @@ def createidat(idatlist):
             lengthlist[i] = lengthlist[i].to_bytes(1, "big", signed=False)
         chunk.extend(lengthlist)
         # Type
-        typelist = [73, 68, 65, 84]
-        for i in range(len(typelist)):
-            typelist[i] = typelist[i].to_bytes(1, "big", signed=False)
         chunk.extend(typelist)
         # Data
-        chunk.extend(idatlist[:2**31-1])
+        chunk.extend(idatlist[:num])
         # CRC
+        typelist.extend(idatlist[:num])
+        crc = (zlib.crc32(struct.pack('>c', *typelist))).to_bytes(4, 'big', signed=False)
+        crclist = list(struct.unpack('4c', crc))
         chunk.extend(crclist)
         intchunk = bytes_to_int(chunk)
+        for i in range(len(crclist)):
+            a = crclist[i]
+            crclist[i] = a.to_bytes(1, "big", signed=False)
         outlist.append(Chunk(0, chunk, intchunk))
-        del idatlist[:2**31-1]
+        del idatlist[:num]
     chunk = []
     # Length
     length = len(idatlist).to_bytes(4, "big", signed=False)
     length = struct.unpack("4c", length)
     chunk.extend(length)
-    # type
-    typelist = [73, 68, 65, 84]
-    for i in range(len(typelist)):
-        typelist[i] = typelist[i].to_bytes(1, "big", signed=False)
+    # Type
     chunk.extend(typelist)
     # Data
     chunk.extend(idatlist)
     # CRC
+    typelist.extend(idatlist)
+    crc = (zlib.crc32(struct.pack(str(len(idatlist)+4) + 'c', *typelist))).to_bytes(4, 'big', signed=False)
+    crclist = list(struct.unpack('4c', crc))
     chunk.extend(crclist)
     intchunk = bytes_to_int(chunk)
     outlist.append(Chunk(0, chunk, intchunk))
@@ -142,8 +151,6 @@ class PNG:
             a = bytes_to_int(i)
             self.intlist.append(a)
         self.cklist = setchunk(self.intlist, self.byteslist)
-
-
 
         # 处理自身的IHDR
         self.IHDR = self.cklist[0]
@@ -237,42 +244,33 @@ class PNG:
     def changegray(self):
         for i in range(len(self.rlist)):
             gray = (self.rlist[i] * 30 + self.glist[i] * 59 + self.blist[i] * 11) // 100
-
             self.rlist[i] = self.glist[i] = self.blist[i] = gray
         self.modify_png(self.rlist, self.glist, self.blist)
         self.gray = True
 
-    def getchpainting(self, intervel=10):
+    def getchpainting(self, step=10):
         if not self.gray:
             self.changegray()
         outtxt = ''
-        x = 1
-        y = 1
-        count = 0
-        while x < self.Height-1:
-            while y < self.Width-1:
+        for x in range(1, self.Height-1, step):
+            for y in range(1, self.Width-1, step):
                 index = self.xy_to_rgbindex(x, y)
                 if self.rlist[index] < 30:
-                    outtxt += '、'
-                elif self.rlist[index] < 60:
-                    outtxt += '巳'
-                elif self.rlist[index] < 90:
-                    outtxt += '凹'
-                elif self.rlist[index] < 120:
-                    outtxt += '刘'
-                elif self.rlist[index] < 150:
-                    outtxt += '星'
-                elif self.rlist[index] < 180:
-                    outtxt += '倒'
-                elif self.rlist[index] < 210:
-                    outtxt += '隧'
-                else:
                     outtxt += '齉'
-                y += intervel
-                count += 1
-            outtxt += '\n'
-            x += intervel
-            y = 1
+                elif self.rlist[index] < 60:
+                    outtxt += '隧'
+                elif self.rlist[index] < 90:
+                    outtxt += '倒'
+                elif self.rlist[index] < 120:
+                    outtxt += '星'
+                elif self.rlist[index] < 150:
+                    outtxt += '刘'
+                elif self.rlist[index] < 180:
+                    outtxt += '凹'
+                elif self.rlist[index] < 210:
+                    outtxt += '巳'
+                else:
+                    outtxt += '、'
         return outtxt
 
     def changeedge(self):
@@ -304,6 +302,34 @@ class PNG:
                 self.rlist[index] = self.glist[index] = self.blist[index] = gradient
 
         self.modify_png(self.rlist, self.glist, self.blist)
+
+    def createpng(self, pngname='test.png'):
+        pngfile = open(pngname, mode='wb')
+        content = self.repack()
+        pngfile.write(content)
+        pngfile.close()
+
+
+# 处理并生成视频
+def create_video(videopath, outpath, outtype=None):
+    video = cv2.VideoCapture(videopath)
+    fps = int(video.get(cv2.CAP_PROP_FPS))
+    size = (int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    outvideo = cv2.VideoWriter(outpath, -1, fps, size)
+    success, img = video.read()
+    num = 0
+    while success:
+        pngname = str(num) + '.png'
+        cv2.imwrite(pngname, img)
+        png = PNG(pngname)
+        png.changegray()
+        png.createpng(pngname=pngname)
+        num += 1
+        success, img = video.read()
+        finalpng = cv2.imread(pngname)
+        outvideo.write(finalpng)
+        os.remove(pngname)
+    video.release()
 
 
 # 重构函数
