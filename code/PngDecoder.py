@@ -364,7 +364,11 @@ class PNG:
 
 # 处理并生成视频
 def create_video(videopath, outpath, outtype=None):
-    video = cv2.VideoCapture(videopath)
+    # 提取音频
+    os.system("ffmpeg -i " + videopath + "-vn - acodec copy temaudio.m4a" )
+    # 提取视频
+    os.system("ffmpeg -i " + videopath + " -vcodec copy -an temvideo.mp4")
+    video = cv2.VideoCapture("temvideo.mp4")
     fps = int(video.get(cv2.CAP_PROP_FPS))
     size = (int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT)))
     outvideo = cv2.VideoWriter(outpath, -1, fps, size)
@@ -374,7 +378,10 @@ def create_video(videopath, outpath, outtype=None):
         pngname = str(num) + '.png'
         cv2.imwrite(pngname, img)
         png = PNG(pngname)
-        png.changegray()
+        if outtype == 'edge':
+            png.changeedge()
+        elif outtype == 'gray':
+            png.changegray()
         png.createpng(pngname=pngname)
         num += 1
         success, img = video.read()
@@ -382,6 +389,10 @@ def create_video(videopath, outpath, outtype=None):
         outvideo.write(finalpng)
         os.remove(pngname)
     video.release()
+    # 合并音频视频
+    os.system("ffmpeg -i temaudio.m4a -i temvideo.mp4 -r 40 -c copy outvideo.mp4")
+    os.remove("temaudio.m4a")
+    os.remove("temvideo.mp4")
 
 
 # 重构函数
