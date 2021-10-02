@@ -136,7 +136,6 @@ def createidat(idatlist):
     outlist.reverse()
     return outlist
 
-
 class PNG:
     def __init__(self, padress):
         pfile = open(padress, mode='rb')
@@ -181,14 +180,13 @@ class PNG:
             rgblist = []
             for i in decompress:
                 rgblist.append(int(i.hex(), 16))
-            for i in range(len(rgblist)):
-                a = rgblist[i]
-                if i % 3 == 0:
-                    self.rlist.append(a)
-                elif i % 3 == 1:
-                    self.glist.append(a)
+            for ind, item in enumerate(rgblist):
+                if ind % 3 == 0:
+                    self.rlist.append(item)
+                elif ind % 3 == 1:
+                    self.glist.append(item)
                 else:
-                    self.blist.append(a)
+                    self.blist.append(item)
             self.rlist = getrgb(self, self.rlist, fillist)
             self.glist = getrgb(self, self.glist, fillist)
             self.blist = getrgb(self, self.blist, fillist)
@@ -211,7 +209,14 @@ class PNG:
             index = x*self.Width+y
         return index
 
-    def modify_png(self, rlist, glist, blist):
+    def modify_png(self, rlist=None, glist=None, blist=None):
+        if not rlist:
+            rlist = self.rlist
+        if not glist:
+            glist = self.glist
+        if not blist:
+            blist = self.blist
+
         idat = []
         filter0 = 0
         insertindex = 0
@@ -224,39 +229,39 @@ class PNG:
         idat = struct.pack(str(len(idat))+'c', *idat)
         idat = zlib.compress(idat)
         idat = struct.unpack(str(len(idat))+'c', idat)
-        for i in range(len(self.cklist)):
-            if self.cklist[i].Type == "IDAT":
-                insertindex = i
+        for ind, item in enumerate(self.cklist):
+            if item.Type == "IDAT":
+                insertindex = ind
                 break
         for i in self.cklist:
             if i.Type == "IDAT":
                 del i
         insertlist = createidat(idat)
-        for i in range(len(insertlist)):
-            self.cklist.insert(insertindex, insertlist[i])
+        for i in insertlist:
+            self.cklist.insert(insertindex, i)
 
     def modify_graypng(self, graylist):
         self.graylist = graylist
         idat = []
         filter0 = 0
         insertindex = 0
-        for i in range(len(graylist)):
-            if i % self.Width == 0:
+        for ind, item in enumerate(graylist):
+            if ind % self.Width == 0:
                 idat.append(filter0.to_bytes(1, "big", signed=False))
-            idat.append(graylist[i].to_bytes(1, "big", signed=False))
+            idat.append(item.to_bytes(1, "big", signed=False))
         idat = struct.pack(str(len(idat)) + 'c', *idat)
         idat = zlib.compress(idat)
         idat = struct.unpack(str(len(idat)) + 'c', idat)
-        for i in range(len(self.cklist)):
-            if self.cklist[i].Type == "IDAT":
-                insertindex = i
+        for ind, item in enumerate(self.cklist):
+            if item.Type == "IDAT":
+                insertindex = ind
                 break
-        for i in self.cklist:
+        for i in self.cklist[insertindex:]:
             if i.Type == "IDAT":
                 del i
         insertlist = createidat(idat)
-        for i in range(len(insertlist)):
-            self.cklist.insert(insertindex, insertlist[i])
+        for i in insertlist:
+            self.cklist.insert(insertindex, i)
         if self.gray:
             pass
         else:
@@ -272,21 +277,15 @@ class PNG:
     def repack(self):
         packls = []
         packls.extend(self.pnghead)
-        for i in range(len(self.cklist)):
-            packls.extend(self.cklist[i].bLength)
-            packls.extend(self.cklist[i].bType)
-            packls.extend(self.cklist[i].bData)
-            packls.extend(self.cklist[i].bCRC)
+        for i in self.cklist:
+            packls.extend(i.bLength)
+            packls.extend(i.bType)
+            packls.extend(i.bData)
+            packls.extend(i.bCRC)
         outpack = struct.pack(str(len(packls))+"c", *packls)
         return outpack
 
     def changegray(self):
-        # for i in range(len(self.rlist)):
-        #     gray = (self.rlist[i] * 30 + self.glist[i] * 59 + self.blist[i] * 11) // 100
-        #
-        #     self.rlist[i] = self.glist[i] = self.blist[i] = gray
-        # self.modify_png(self.rlist, self.glist, self.blist)
-        # self.gray = True
         graylist = []
         for i in range(len(self.rlist)):
             graylist.append((self.rlist[i] * 30 + self.glist[i] * 59 + self.blist[i] * 11) // 100)
@@ -312,7 +311,7 @@ class PNG:
                 elif self.rlist[index] < 180:
                     outtxt += '凹'
                 elif self.rlist[index] < 210:
-                    outtxt += '巳'
+                    outtxt += '一'
                 else:
                     outtxt += '、'
         return outtxt
@@ -329,14 +328,6 @@ class PNG:
                 # g h i
                 index = self.xy_to_rgbindex(x, y)
                 a = self.xy_to_rgbindex(x, y)
-                # b = graylist[self.xy_to_rgbindex(x-1, y-1)]
-                # c = graylist[self.xy_to_rgbindex(x-1, y)]
-                # d = graylist[self.xy_to_rgbindex(x-1, y+1)]
-                # e = graylist[self.xy_to_rgbindex(x, y-1)]
-                # f = graylist[self.xy_to_rgbindex(x, y+1)]
-                # g = graylist[self.xy_to_rgbindex(x+1, y-1)]
-                # h = graylist[self.xy_to_rgbindex(x+1, y)]
-                # i = graylist[self.xy_to_rgbindex(x+1, y+1)]
                 b = graylist[a-self.Width-1]
                 c = graylist[a-self.Width]
                 d = graylist[a-self.Width+1]
@@ -390,7 +381,8 @@ def create_video(videopath, outpath, outtype=None):
         os.remove(pngname)
     video.release()
     # 合并音频视频
-    os.system("ffmpeg -i temaudio.m4a -i temvideo.mp4 -r 40 -c copy outvideo.mp4")
+    # os.system("ffmpeg -i temaudio.m4a -i temvideo.mp4 -r 40 -c copy outvideo.mp4")
+    os.system("ffmpeg -i temaudio.m4a -i temvideo.mp4 -r " + str(int(fps)) + " -c copy outvideo.mp4")
     os.remove("temaudio.m4a")
     os.remove("temvideo.mp4")
 
