@@ -22,7 +22,7 @@ class Chunk:
         index += self.Length
         # CRC
         self.bCRC = bytesls[index:index + 4]
-        # self.CRC = [list[index], list[index+1], list[index+2], list[index+3]]
+        self.CRC = [intlist[index], intlist[index+1], intlist[index+2], intlist[index+3]]
         self.endindex = index + 4
 
     def IHDRWidth(self, intlist):
@@ -135,6 +135,7 @@ def createidat(idatlist):
     outlist.append(Chunk(0, chunk, intchunk))
     outlist.reverse()
     return outlist
+
 
 class PNG:
     def __init__(self, padress):
@@ -298,22 +299,23 @@ class PNG:
         for x in range(1, self.Height-1, step):
             for y in range(1, self.Width-1, step):
                 index = self.xy_to_rgbindex(x, y)
-                if self.rlist[index] < 30:
+                if self.graylist[index] < 30:
                     outtxt += '齉'
-                elif self.rlist[index] < 60:
+                elif self.graylist[index] < 60:
                     outtxt += '隧'
-                elif self.rlist[index] < 90:
+                elif self.graylist[index] < 90:
                     outtxt += '倒'
-                elif self.rlist[index] < 120:
+                elif self.graylist[index] < 120:
                     outtxt += '星'
-                elif self.rlist[index] < 150:
+                elif self.graylist[index] < 150:
                     outtxt += '刘'
-                elif self.rlist[index] < 180:
+                elif self.graylist[index] < 180:
                     outtxt += '凹'
-                elif self.rlist[index] < 210:
+                elif self.graylist[index] < 210:
                     outtxt += '一'
                 else:
                     outtxt += '、'
+            outtxt += '\n'
         return outtxt
 
     def changeedge(self):
@@ -356,7 +358,7 @@ class PNG:
 # 处理并生成视频
 def create_video(videopath, outpath, outtype=None):
     # 提取音频
-    os.system("ffmpeg -i " + videopath + "-vn - acodec copy temaudio.m4a" )
+    os.system("ffmpeg -i " + videopath + "-vn - acodec copy temaudio.m4a")
     # 提取视频
     os.system("ffmpeg -i " + videopath + " -vcodec copy -an temvideo.mp4")
     video = cv2.VideoCapture("temvideo.mp4")
@@ -443,8 +445,3 @@ def getrgb(picture, rgblist, filtermethod):
                     rgblist[j + i * picture.Width] = (rgblist[j + i * picture.Width] + ret) % 256
 
     return rgblist
-
-
-# 过滤函数
-def filrgb(picrgblist, filtermethod):
-    pass
