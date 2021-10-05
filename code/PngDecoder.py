@@ -95,7 +95,7 @@ def createidat(idatlist):
     typelist = []
     for i in [73, 68, 65, 84]:
         typelist.append(i.to_bytes(1, "big", signed=False))
-    while len(idatlist) > 2**31-1:
+    while len(idatlist) > 2**32-1:
         chunk = []
         # Length
         lengthlist = [255, 255, 255, 255]
@@ -108,7 +108,8 @@ def createidat(idatlist):
         chunk.extend(idatlist[:num])
         # CRC
         typelist.extend(idatlist[:num])
-        crc = (zlib.crc32(struct.pack('>c', *typelist))).to_bytes(4, 'big', signed=False)
+
+        crc = (zlib.crc32(struct.pack(str(len(typelist)) + 'c', *typelist))).to_bytes(4, 'big', signed=False)
         crclist = list(struct.unpack('4c', crc))
         chunk.extend(crclist)
         intchunk = bytes_to_int(chunk)
@@ -234,9 +235,8 @@ class PNG:
             if item.Type == "IDAT":
                 insertindex = ind
                 break
-        for i in self.cklist:
-            if i.Type == "IDAT":
-                del i
+        while self.cklist[insertindex].Type == "IDAT":
+            del self.cklist[insertindex]
         insertlist = createidat(idat)
         for i in insertlist:
             self.cklist.insert(insertindex, i)
@@ -257,9 +257,8 @@ class PNG:
             if item.Type == "IDAT":
                 insertindex = ind
                 break
-        for i in self.cklist[insertindex:]:
-            if i.Type == "IDAT":
-                del i
+        while self.cklist[insertindex].Type == "IDAT":
+            del self.cklist[insertindex]
         insertlist = createidat(idat)
         for i in insertlist:
             self.cklist.insert(insertindex, i)
@@ -312,13 +311,13 @@ class PNG:
                 elif self.graylist[index] < 180:
                     outtxt += '凹'
                 elif self.graylist[index] < 210:
-                    outtxt += '一'
+                    outtxt += '二'
                 else:
                     outtxt += '、'
             outtxt += '\n'
         return outtxt
 
-    def changeedge(self):
+    def changeedge(self, bound=255):
         if not self.gray:
             self.changegray()
         graylist = []
@@ -341,7 +340,7 @@ class PNG:
                 fx = abs((2 * f + d + i - 2 * e - b - g)) // 4
                 fy = abs((2 * h + g + i - 2 * c - b - d)) // 4
                 gradient = int((fx ** 2 + fy ** 2) ** 0.5)
-                if gradient > 255:
+                if gradient > bound:
                     gradient = 255
                 gradient = 255 - gradient
                 self.graylist[index] = gradient
